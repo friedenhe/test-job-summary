@@ -42,17 +42,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          cat > manifest.tsv << 'MANIFEST'
-Airfoil Pressure Profile Preview	airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png
-Wing Pressure Flow Field Preview	wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png
-MANIFEST
-
           python3 << 'PYTHON'
 import json
 import os
 import re
 import urllib.request
 from pathlib import Path
+
+# Create manifest
+Path("manifest.tsv").write_text("Airfoil Pressure Profile Preview\tairfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png\nWing Pressure Flow Field Preview\twing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png\n")
 
 summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
 manifest_path = Path("manifest.tsv")
