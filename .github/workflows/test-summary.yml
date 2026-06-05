@@ -1,0 +1,108 @@
+name: Test Job Summary
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-summary:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Unzip pre-made artifact
+        run: |
+          unzip -q llm-test-results-26988984471.zip
+          ls -la
+
+      - name: Create individual preview artifacts
+        run: |
+          mkdir -p artifacts
+          cd llm-test-results-26988984471
+
+          # Extract and create separate artifacts for each image
+          cp airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png ../artifacts/
+          cp wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png ../artifacts/
+
+          cd ..
+          ls -la artifacts/
+
+      - name: Upload preview artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-preview-001-airfoil-pressure-profile-preview-${{ github.run_id }}
+          path: artifacts/airfoil_pressure_profile.png
+
+      - name: Upload preview artifacts 2
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-preview-002-wing-pressure-flow-field-preview-${{ github.run_id }}
+          path: artifacts/wing_flow_field_p_3d.png
+
+      - name: Write job summary
+        run: |
+          cat > manifest.tsv <<'EOF'
+Airfoil Pressure Profile Preview	airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png
+Wing Pressure Flow Field Preview	wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png
+EOF
+
+          python3 - <<'PYTHON'
+import json
+import os
+import re
+import urllib.request
+from pathlib import Path
+
+summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+manifest_path = Path("manifest.tsv")
+repo = os.environ["GITHUB_REPOSITORY"]
+run_id = os.environ["GITHUB_RUN_ID"]
+token = os.environ["GITHUB_TOKEN"]
+
+def slugify(text):
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug[:50] or "figure-preview"
+
+def fetch_artifact_urls():
+    api_url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100"
+    request = urllib.request.Request(
+        api_url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    with urllib.request.urlopen(request) as response:
+        payload = json.load(response)
+    artifacts = {}
+    for artifact in payload.get("artifacts", []):
+        artifacts[artifact["name"]] = f"https://github.com/{repo}/actions/runs/{run_id}/artifacts/{artifact['id']}"
+    return artifacts
+
+with summary_path.open("a", encoding="utf-8") as summary:
+    summary.write("## Test Figure Previews\n")
+    artifact_urls = fetch_artifact_urls()
+
+    lines = [line.rstrip("\n") for line in manifest_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    for index, line in enumerate(lines, start=1):
+        parts = line.split("\t", 1)
+        title = parts[0].strip() if parts else f"Figure Preview {index}"
+        image_path_str = parts[1].strip() if len(parts) > 1 else ""
+        summary.write(f"\n### {title}\n")
+        if not image_path_str:
+            summary.write("\nNo image matched the requested pattern for this test.\n")
+            continue
+        image_path = Path(image_path_str)
+        summary.write(f"\nSource: `{image_path}`\n\n")
+        artifact_name = f"llm-preview-{index:03d}-{slugify(title)}-{run_id}"
+        artifact_url = artifact_urls.get(artifact_name, "")
+        if artifact_url:
+            summary.write(f"[Download `{image_path.name}`]({artifact_url})\n")
+        else:
+            summary.write(f"\n❌ Preview artifact link not available (looking for: {artifact_name})\n")
+            summary.write(f"Found artifacts: {list(artifact_urls.keys())}\n")
+PYTHON
+
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
