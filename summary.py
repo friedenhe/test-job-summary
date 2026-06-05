@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
+import base64
 import json
 import os
 import re
 import urllib.request
+import zipfile
 from pathlib import Path
 
 summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
@@ -61,12 +63,30 @@ with summary_path.open("a", encoding="utf-8") as summary:
         artifact_url = artifact_urls.get(artifact_name, "")
 
         if artifact_url:
-            # Construct direct download URL for the artifact
-            download_url = f"{artifact_url}/download"
-            summary.write(f"![{title}]({download_url})\n\n")
-            summary.write(f"[View artifact]({artifact_url})\n\n")
-        else:
-            summary.write(f"❌ Not found: {artifact_name}\n\n")
+            filename = Path(image_path_str).name
+            try:
+                # Download artifact zip and extract image
+                zip_url = f"{artifact_url}/zip"
+                req = urllib.request.Request(
+                    zip_url,
+                    headers={"Authorization": f"Bearer {token}"},
+                )
+                with urllib.request.urlopen(req) as response:
+                    zip_data = response.read()
+
+                # Extract image from zip
+                with zipfile.ZipFile(__import__('io').BytesIO(zip_data)) as zf:
+                    # Find the image file in the zip
+                    for file_info in zf.filelist:
+                        if file_info.filename.endswith(filename):
+                            image_data = zf.read(file_info.filename)
+                            # Embed as base64
+                            b64 = base64.b64encode(image_data).decode()
+                            summary.write(f"![{title}](data:image/png;base64,{b64})\n\n")
+                            break
+            except Exception as e:
+                summary.write(f"✅ **[Download {filename}]({artifact_url})**\n")
+                summary.write(f"(Could not embed: {e})\n\n")
 
     summary.write(f"\n**Debug info:**\n")
     summary.write(f"Found {len(artifact_urls)} artifacts:\n")
