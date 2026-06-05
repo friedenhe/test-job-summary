@@ -28,7 +28,27 @@ jobs:
       - name: Wait for artifacts to be indexed
         run: sleep 3
 
+      - name: Deploy images to GitHub Pages
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # Create directory for this run's images
+          mkdir -p gh-pages/run-${{ github.run_id }}
+          cp airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png gh-pages/run-${{ github.run_id }}/
+          cp wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png gh-pages/run-${{ github.run_id }}/
+
+          # Deploy to gh-pages branch
+          cd gh-pages
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git init
+          git add .
+          git commit -m "Add images for run ${{ github.run_id }}"
+          git push -f https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main:gh-pages
+
       - name: Generate summary
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
         run: python3 ${{ github.workspace }}/summary.py
