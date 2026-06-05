@@ -20,33 +20,34 @@ jobs:
           mkdir -p artifacts
           cd llm-test-results-26988984471
 
-          # Extract and create separate artifacts for each image
           cp airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png ../artifacts/
           cp wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png ../artifacts/
 
           cd ..
           ls -la artifacts/
 
-      - name: Upload preview artifacts
+      - name: Upload preview artifact 1
         uses: actions/upload-artifact@v4
         with:
           name: llm-preview-001-airfoil-pressure-profile-preview-${{ github.run_id }}
           path: artifacts/airfoil_pressure_profile.png
 
-      - name: Upload preview artifacts 2
+      - name: Upload preview artifact 2
         uses: actions/upload-artifact@v4
         with:
           name: llm-preview-002-wing-pressure-flow-field-preview-${{ github.run_id }}
           path: artifacts/wing_flow_field_p_3d.png
 
       - name: Write job summary
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          cat > manifest.tsv <<'EOF'
+          cat > manifest.tsv << 'MANIFEST'
 Airfoil Pressure Profile Preview	airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png
 Wing Pressure Flow Field Preview	wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png
-EOF
+MANIFEST
 
-          python3 - <<'PYTHON'
+          python3 << 'PYTHON'
 import json
 import os
 import re
@@ -81,7 +82,7 @@ def fetch_artifact_urls():
     return artifacts
 
 with summary_path.open("a", encoding="utf-8") as summary:
-    summary.write("## Test Figure Previews\n")
+    summary.write("## Test Figure Previews\n\n")
     artifact_urls = fetch_artifact_urls()
 
     lines = [line.rstrip("\n") for line in manifest_path.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -89,20 +90,17 @@ with summary_path.open("a", encoding="utf-8") as summary:
         parts = line.split("\t", 1)
         title = parts[0].strip() if parts else f"Figure Preview {index}"
         image_path_str = parts[1].strip() if len(parts) > 1 else ""
-        summary.write(f"\n### {title}\n")
+        summary.write(f"### {title}\n")
         if not image_path_str:
-            summary.write("\nNo image matched the requested pattern for this test.\n")
+            summary.write("No image matched the requested pattern.\n\n")
             continue
         image_path = Path(image_path_str)
-        summary.write(f"\nSource: `{image_path}`\n\n")
+        summary.write(f"Source: `{image_path}`\n\n")
         artifact_name = f"llm-preview-{index:03d}-{slugify(title)}-{run_id}"
         artifact_url = artifact_urls.get(artifact_name, "")
         if artifact_url:
-            summary.write(f"[Download `{image_path.name}`]({artifact_url})\n")
+            summary.write(f"[Download {image_path.name}]({artifact_url})\n\n")
         else:
-            summary.write(f"\n❌ Preview artifact link not available (looking for: {artifact_name})\n")
-            summary.write(f"Found artifacts: {list(artifact_urls.keys())}\n")
+            summary.write(f"❌ Artifact not found: {artifact_name}\n")
+            summary.write(f"Available: {list(artifact_urls.keys())}\n\n")
 PYTHON
-
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
