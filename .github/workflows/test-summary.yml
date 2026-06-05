@@ -13,6 +13,17 @@ jobs:
       - name: Unzip artifact
         run: unzip -q llm-test-results-26988984471.zip
 
+      - name: Debug - Check files exist
+        run: |
+          echo "=== Listing unzipped contents ==="
+          ls -la llm-test-results-26988984471/ | head -20
+          echo ""
+          echo "=== Checking airfoil file ==="
+          ls -lh llm-test-results-26988984471/airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png || echo "NOT FOUND"
+          echo ""
+          echo "=== Checking wing file ==="
+          ls -lh llm-test-results-26988984471/wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png || echo "NOT FOUND"
+
       - name: Upload preview artifacts
         uses: actions/upload-artifact@v4
         with:
