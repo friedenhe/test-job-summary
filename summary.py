@@ -61,7 +61,10 @@ with summary_path.open("a", encoding="utf-8") as summary:
         artifact_url = artifact_urls.get(artifact_name, "")
 
         if artifact_url:
-            summary.write(f"✅ [Download]({artifact_url})\n\n")
+            # Construct direct download URL for the artifact
+            download_url = f"{artifact_url}/download"
+            summary.write(f"![{title}]({download_url})\n\n")
+            summary.write(f"[View artifact]({artifact_url})\n\n")
         else:
             summary.write(f"❌ Not found: {artifact_name}\n\n")
 
