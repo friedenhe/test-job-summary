@@ -44,6 +44,7 @@ jobs:
           git init
           git add .
           git commit -m "Add images for run ${{ github.run_id }}"
+          git branch -M main
           git push -f https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git main:gh-pages
 
       - name: Generate summary
