@@ -39,7 +39,10 @@ def fetch_artifact_urls():
                 payload = json.load(response)
             artifacts = {}
             for artifact in payload.get("artifacts", []):
-                artifacts[artifact["name"]] = f"https://github.com/{repo}/actions/runs/{run_id}/artifacts/{artifact['id']}"
+                artifacts[artifact["name"]] = {
+                    "id": artifact["id"],
+                    "url": f"https://api.github.com/repos/{repo}/actions/artifacts/{artifact['id']}/zip"
+                }
             if artifacts:
                 return artifacts
             if attempt < 4:
@@ -66,7 +69,7 @@ with summary_path.open("a", encoding="utf-8") as summary:
             filename = Path(image_path_str).name
             try:
                 # Download artifact zip and extract image
-                zip_url = f"{artifact_url}/zip"
+                zip_url = artifact_url["url"]
                 req = urllib.request.Request(
                     zip_url,
                     headers={"Authorization": f"Bearer {token}"},
@@ -85,10 +88,11 @@ with summary_path.open("a", encoding="utf-8") as summary:
                             summary.write(f"![{title}](data:image/png;base64,{b64})\n\n")
                             break
             except Exception as e:
-                summary.write(f"✅ **[Download {filename}]({artifact_url})**\n")
+                ui_url = f"https://github.com/{repo}/actions/runs/{run_id}"
+                summary.write(f"✅ **[Download {filename}]({ui_url})**\n")
                 summary.write(f"(Could not embed: {e})\n\n")
+        else:
+            summary.write(f"❌ Not found: {artifact_name}\n\n")
 
     summary.write(f"\n**Debug info:**\n")
-    summary.write(f"Found {len(artifact_urls)} artifacts:\n")
-    for name in sorted(artifact_urls.keys()):
-        summary.write(f"- {name}\n")
+    summary.write(f"Found {len(artifact_urls)} artifacts\n")
