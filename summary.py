@@ -21,21 +21,33 @@ def slugify(text):
     return slug[:50] or "figure-preview"
 
 def fetch_artifact_urls():
+    import time
     api_url = f"https://api.github.com/repos/{repo}/actions/runs/{run_id}/artifacts?per_page=100"
-    request = urllib.request.Request(
-        api_url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "X-GitHub-Api-Version": "2022-11-28",
-        },
-    )
-    with urllib.request.urlopen(request) as response:
-        payload = json.load(response)
-    artifacts = {}
-    for artifact in payload.get("artifacts", []):
-        artifacts[artifact["name"]] = f"https://github.com/{repo}/actions/runs/{run_id}/artifacts/{artifact['id']}"
-    return artifacts
+    for attempt in range(5):
+        try:
+            request = urllib.request.Request(
+                api_url,
+                headers={
+                    "Accept": "application/vnd.github+json",
+                    "Authorization": f"Bearer {token}",
+                    "X-GitHub-Api-Version": "2022-11-28",
+                },
+            )
+            with urllib.request.urlopen(request) as response:
+                payload = json.load(response)
+            artifacts = {}
+            for artifact in payload.get("artifacts", []):
+                artifacts[artifact["name"]] = f"https://github.com/{repo}/actions/runs/{run_id}/artifacts/{artifact['id']}"
+            if artifacts:
+                return artifacts
+            if attempt < 4:
+                print(f"No artifacts yet, retrying... ({attempt+1}/5)", flush=True)
+                time.sleep(2)
+        except Exception as e:
+            print(f"API error: {e}", flush=True)
+            if attempt < 4:
+                time.sleep(2)
+    return {}
 
 with summary_path.open("a", encoding="utf-8") as summary:
     summary.write("## Test Figure Previews\n\n")

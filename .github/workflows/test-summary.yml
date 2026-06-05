@@ -25,6 +25,9 @@ jobs:
           name: llm-preview-002-wing-pressure-flow-field-preview-${{ github.run_id }}
           path: llm-test-results-26988984471/wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png
 
+      - name: Wait for artifacts to be indexed
+        run: sleep 3
+
       - name: Generate summary
         env:
           GITHUB_TOKEN: ${{ github.token }}
