@@ -34,13 +34,20 @@ jobs:
           cp airfoil_cfd_rae2822_aoa1_1cpu_0000/plots/airfoil_pressure_profile.png images/run-${{ github.run_id }}/
           cp wing_cfd_wing_s809_naca2412_aoa1_0000/plots/wing_flow_field_p_3d.png images/run-${{ github.run_id }}/
 
+      - name: Debug - Check images exist
+        run: |
+          echo "=== Images directory ==="
+          ls -lah images/
+          find images/ -type f
+
       - name: Commit and push images to main
         run: |
           git config --global user.email "action@github.com"
           git config --global user.name "GitHub Action"
           git add images/
+          git status
           git commit -m "Add images for run ${{ github.run_id }}" || echo "No changes to commit"
-          git push
+          git push -v
 
       - name: Generate summary
         env:
