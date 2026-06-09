@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Job Summary - Image Gallery</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f6f8fa;
+        }
+        h1 { color: #0366d6; }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .image-container {
+            background: white;
+            padding: 15px;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .image-container h3 {
+            margin-top: 0;
+            color: #0366d6;
+        }
+        .image-container img {
+            width: 100%;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>📊 Test Job Summary Gallery</h1>
+    <p>Latest test results with CFD simulation figures</p>
+
+    <div class="gallery" id="gallery"></div>
+
+    <script>
+        // Fetch list of runs from GitHub API
+        async function loadImages() {
+            const repo = 'friedenhe/test-job-summary';
+            const apiUrl = `https://api.github.com/repos/${repo}/contents/images`;
+
+            try {
+                const response = await fetch(apiUrl);
+                const files = await response.json();
+
+                // Find the latest run directory
+                const runs = files.filter(f => f.type === 'dir' && f.name.startsWith('run-'));
+                runs.sort((a, b) => parseInt(b.name.split('-')[1]) - parseInt(a.name.split('-')[1]));
+
+                if (runs.length === 0) {
+                    document.getElementById('gallery').innerHTML = '<p>No images found yet. Run the workflow to generate images.</p>';
+                    return;
+                }
+
+                const latestRun = runs[0].name;
+                const imagesUrl = `https://api.github.com/repos/${repo}/contents/images/${latestRun}`;
+                const imagesResponse = await fetch(imagesUrl);
+                const images = await imagesResponse.json();
+
+                const gallery = document.getElementById('gallery');
+                gallery.innerHTML = '';
+
+                images.forEach(img => {
+                    if (img.name.endsWith('.png')) {
+                        const container = document.createElement('div');
+                        container.className = 'image-container';
+                        container.innerHTML = `
+                            <h3>${img.name.replace('.png', '').replace(/_/g, ' ')}</h3>
+                            <img src="images/${latestRun}/${img.name}" alt="${img.name}">
+                        `;
+                        gallery.appendChild(container);
+                    }
+                });
+
+                document.querySelector('p').textContent = `Latest run: ${latestRun}`;
+            } catch (error) {
+                console.error('Error loading images:', error);
+                document.getElementById('gallery').innerHTML = '<p>Error loading images. Check browser console.</p>';
+            }
+        }
+
+        loadImages();
+    </script>
+</body>
+</html>
