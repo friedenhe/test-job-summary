@@ -30,58 +30,80 @@
         .image-container img {
             width: 100%;
             border-radius: 4px;
+            max-height: 500px;
+            object-fit: cover;
+        }
+        .image-path {
+            font-size: 12px;
+            color: #666;
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <h1>📊 Test Job Summary Gallery</h1>
-    <p>Latest test results with CFD simulation figures</p>
+    <p>Latest CFD simulation results</p>
 
-    <div class="gallery" id="gallery"></div>
+    <div class="gallery" id="gallery">
+        <div class="image-container">
+            <h3>Airfoil Pressure Profile Preview</h3>
+            <p>Loading latest image...</p>
+            <div id="airfoil-loading">Checking for images in repo...</div>
+        </div>
+        <div class="image-container">
+            <h3>Wing Pressure Flow Field Preview</h3>
+            <p>Loading latest image...</p>
+            <div id="wing-loading">Checking for images in repo...</div>
+        </div>
+    </div>
 
     <script>
-        // Fetch list of runs from GitHub API
+        // Try to load images from the images folder
+        // The workflow should have pushed them to images/run-{id}/
         async function loadImages() {
             const repo = 'friedenhe/test-job-summary';
-            const apiUrl = `https://api.github.com/repos/${repo}/contents/images`;
 
+            // Try to fetch the directory listing
             try {
-                const response = await fetch(apiUrl);
-                const files = await response.json();
+                const response = await fetch(`https://api.github.com/repos/${repo}/git/trees/main?recursive=1`);
+                const data = await response.json();
 
-                // Find the latest run directory
-                const runs = files.filter(f => f.type === 'dir' && f.name.startsWith('run-'));
-                runs.sort((a, b) => parseInt(b.name.split('-')[1]) - parseInt(a.name.split('-')[1]));
-
-                if (runs.length === 0) {
-                    document.getElementById('gallery').innerHTML = '<p>No images found yet. Run the workflow to generate images.</p>';
+                if (!data.tree) {
+                    document.getElementById('gallery').innerHTML = '<p>Unable to find images. Make sure the workflow has run and pushed images to the repo.</p>';
                     return;
                 }
 
-                const latestRun = runs[0].name;
-                const imagesUrl = `https://api.github.com/repos/${repo}/contents/images/${latestRun}`;
-                const imagesResponse = await fetch(imagesUrl);
-                const images = await imagesResponse.json();
+                // Find all PNG files in the images directory
+                const imageFiles = data.tree.filter(f => f.path.startsWith('images/') && f.path.endsWith('.png'));
+
+                if (imageFiles.length === 0) {
+                    document.getElementById('gallery').innerHTML = '<p>No images found. Run the workflow first.</p>';
+                    return;
+                }
+
+                // Sort by path to get latest run
+                imageFiles.sort().reverse();
 
                 const gallery = document.getElementById('gallery');
                 gallery.innerHTML = '';
 
-                images.forEach(img => {
-                    if (img.name.endsWith('.png')) {
-                        const container = document.createElement('div');
-                        container.className = 'image-container';
-                        container.innerHTML = `
-                            <h3>${img.name.replace('.png', '').replace(/_/g, ' ')}</h3>
-                            <img src="images/${latestRun}/${img.name}" alt="${img.name}">
-                        `;
-                        gallery.appendChild(container);
-                    }
+                imageFiles.forEach(file => {
+                    const container = document.createElement('div');
+                    container.className = 'image-container';
+                    const filename = file.path.split('/').pop();
+                    const imageName = filename.replace('.png', '').replace(/_/g, ' ');
+
+                    container.innerHTML = `
+                        <h3>${imageName}</h3>
+                        <img src="https://raw.githubusercontent.com/${repo}/main/${file.path}" alt="${imageName}" onerror="this.style.display='none'; this.parentElement.innerHTML+='<p style=color:red>Image failed to load</p>'">
+                        <div class="image-path">${file.path}</div>
+                    `;
+                    gallery.appendChild(container);
                 });
 
-                document.querySelector('p').textContent = `Latest run: ${latestRun}`;
             } catch (error) {
-                console.error('Error loading images:', error);
-                document.getElementById('gallery').innerHTML = '<p>Error loading images. Check browser console.</p>';
+                console.error('Error:', error);
+                document.getElementById('gallery').innerHTML = '<p>Error loading gallery. Check that images have been pushed to the repo.</p>';
             }
         }
 
